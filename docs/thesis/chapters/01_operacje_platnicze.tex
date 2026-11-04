@@ -1,0 +1,25 @@
+% SZKIC: tekst przygotowany z pomocą AI. Przepisz go własnymi słowami, sprawdź źródła i uwzględnij to w deklaracji poziomu AI.
+\chapter{Operacje płatnicze i problem wykrywania oszustw}
+\label{ch:platnosci}
+
+\section{Transakcje płatnicze i systemy płatności}
+Transakcja płatnicza jest zleceniem przekazania środków od płatnika do odbiorcy, realizowanym za pośrednictwem instrumentu płatniczego (karta, przelew, portfel mobilny). Z punktu widzenia systemu antyfraudowego istotne są dane opisujące zdarzenie: kwota, czas, odbiorca i jego kategoria, kanał (płatność w sklepie lub online), urządzenie oraz historia klienta. \todo{krótki opis uczestników: płatnik, akceptant, agent rozliczeniowy, wydawca karty; źródło}
+
+\section{Rodzaje oszustw płatniczych i skala problemu}
+Najczęściej wyróżnia się nadużycia z użyciem karty bez jej fizycznej obecności (płatności internetowe), wykorzystanie skradzionej lub sklonowanej karty oraz przejęcie konta klienta. \todo{definicje i dane liczbowe z raportu EBA/ECB o oszustwach płatniczych, z cytowaniem} Regulacje europejskie (PSD2) wprowadziły m.in. silne uwierzytelnianie klienta, co wpływa na strukturę oszustw i na dane dostępne dla systemów detekcji. \todo{źródło dla PSD2/SCA}
+
+\section{Systemy antyfraudowe: reguły biznesowe a uczenie maszynowe}
+Klasyczne systemy opierają się na regułach definiowanych przez ekspertów (limity kwot, kraje wysokiego ryzyka, częstość transakcji). Są one czytelne, lecz wymagają ręcznej aktualizacji i trudno wykrywają nowe schematy. Uczenie maszynowe pozwala budować modele na historycznych danych i oceniać ryzyko pojedynczej transakcji \cite{dalpozzolo2018}, zazwyczaj uzupełniając reguły, a nie je zastępując.
+
+\section{Specyfika danych transakcyjnych}
+Dane transakcyjne mają cechy, które determinują dobór metod i sposób oceny:
+\begin{itemize}
+  \item \textbf{Silne niezbalansowanie klas.} Oszustwa stanowią ułamek procenta transakcji; w zbiorze użytym w pracy jest to 0{,}17\% (rozdz.~\ref{ch:projekt}).
+  \item \textbf{Dryf koncepcji.} Zachowania klientów i sposoby oszustw zmieniają się w czasie, więc model trenowany na przeszłości może tracić skuteczność \cite{dalpozzolo2018}.
+  \item \textbf{Opóźnienie weryfikacji.} Etykieta „oszustwo” jest znana dopiero po zgłoszeniu lub dochodzeniu, więc najnowsze dane są nieoznaczone lub błędnie oznaczone \cite{dalpozzolo2018}.
+  \item \textbf{Dane wrażliwe.} Publiczne zbiory są anonimizowane, co ogranicza interpretowalność cech.
+\end{itemize}
+Z dwóch pierwszych cech wynika uzasadnienie podziału czasowego danych i stosowania miar właściwych dla klas niezbalansowanych (rozdz.~\ref{ch:ml}).
+
+\section{Wymagania praktyczne}
+System detekcji musi ocenić transakcję w czasie, który nie opóźnia płatności, a decyzja o progu alertu zależy od kosztów błędów: pominięte oszustwo (fałszywie ujemne) oznacza stratę, a fałszywy alarm (fałszywie dodatni) koszt obsługi i pogorszenie doświadczenia klienta. Konieczna jest także możliwość wyjaśnienia decyzji oraz monitorowania jakości modeli w czasie. Wymagania te przekładają się na funkcje opisanego w pracy systemu (rozdz.~\ref{ch:projekt}).

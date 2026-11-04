@@ -1,0 +1,88 @@
+% !TEX program = pdflatex
+% Praca dyplomowa -- układ zgodny z szablonem (strona tytułowa i strona AI z szablonu Overleaf
+% „Praca dyplomowa AGH”, reszta wg wzoru pracy z Katedry Telekomunikacji WIET).
+% Do wgrania do projektu (z szablonu Overleaf): logo_AGH.pdf, AI_poziom_0.jpg ... AI_poziom_3.jpg
+\documentclass[12pt,a4paper]{report}
+
+\usepackage{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}                 % Times, jak we wzorze pracy
+\usepackage[a4paper,left=3.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{indentfirst}
+\setlength{\parindent}{1.25cm}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{enumitem}
+\setlist{leftmargin=2cm,topsep=2pt,itemsep=0pt}
+\usepackage{chngcntr}
+\counterwithout{equation}{chapter}    % numeracja wzorów ciągła: (1), (2), ...
+\usepackage{csquotes}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,extendedchars=true,literate={ś}{{\'s}}1 {ó}{{\'o}}1 {ł}{{\l}}1 {ą}{{\k a}}1 {ę}{{\k e}}1 {ż}{{\.z}}1 {ź}{{\'z}}1 {ć}{{\'c}}1 {ń}{{\'n}}1}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+\addbibresource{bib/literatura.bib}
+\usepackage[hidelinks]{hyperref}
+
+% --- nagłówki jak we wzorze: „1. Tytuł” i „1.1 Tytuł” (pogrubiona kursywa)
+\titleformat{\chapter}{\normalfont\Large\bfseries}{\thechapter.}{0.5em}{}
+\titlespacing*{\chapter}{0pt}{30pt}{28pt}
+\titleformat{\section}{\normalfont\large\bfseries\itshape}{\thesection}{0.6em}{}
+\titlespacing*{\section}{1.25cm}{14pt}{6pt}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries\itshape}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{1.25cm}{10pt}{4pt}
+
+% --- spis treści z kropkami
+\renewcommand{\cftchapfont}{\normalfont\bfseries}
+\renewcommand{\cftchapleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftchappagefont}{\normalfont}
+
+% --- numer strony w stopce: „- 13 -”
+\pagestyle{fancy}\fancyhf{}\fancyfoot[C]{- \thepage{} -}\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{- \thepage{} -}\renewcommand{\headrulewidth}{0pt}}
+
+% --- podpisy: „Rys. 1.1 Opis” + linia „Źródło: [n]”
+\usepackage{caption}
+\AtBeginDocument{\renewcommand{\figurename}{Rys.}\renewcommand{\tablename}{Tab.}}
+\captionsetup{labelfont=bf,labelsep=space,justification=centering}
+\newcommand{\zrodlo}[1]{{\centering Źródło: #1\par}}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+% --- dane do strony tytułowej (uzupełnij)
+\newcommand{\katedra}{KATEDRA TELEKOMUNIKACJI}      % \todo{katedra opiekuna pracy}
+\newcommand{\autor}{\todo{Imię i Nazwisko}}
+\newcommand{\opiekun}{\todo{stopień/tytuł Imię i Nazwisko}}
+\newcommand{\rokpracy}{2026}
+% Poziom użycia AI (0--3), wybierz zgodnie z faktycznym użyciem i wytycznymi wydziału
+\newcommand{\poziomAI}{2}
+
+\begin{document}
+\input{frontmatter/tytulowa}
+\input{frontmatter/ai}
+\input{frontmatter/oswiadczenie}
+% \input{frontmatter/streszczenie}   % opcjonalnie, jeśli wydział wymaga streszczenia w pracy
+
+\setcounter{tocdepth}{1}
+\tableofcontents
+
+\input{chapters/00_wstep}
+\input{chapters/01_operacje_platnicze}
+\input{chapters/02_metody_ml}
+\input{chapters/03_projekt_systemu}
+\input{chapters/04_implementacja}
+\input{chapters/05_badania}
+\input{chapters/06_podsumowanie}
+
+\printbibliography[heading=bibintoc,title={Bibliografia}]
+
+\input{chapters/zalacznik_a}
+\end{document}

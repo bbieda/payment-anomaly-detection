@@ -1,0 +1,10 @@
+% Strona z poziomem użycia AI -- zostaje TYLKO JEDNA ikona (ustawiana w main.tex: \poziomAI).
+\thispagestyle{empty}
+\vspace*{3cm}
+{\sf
+\begin{tabular}{lp{10cm}}
+\IfFileExists{AI_poziom_\poziomAI.jpg}{\includegraphics{AI_poziom_\poziomAI.jpg}}{\fbox{AI\_poziom\_\poziomAI.jpg}} &
+\ifcase\poziomAI Brak AI\or Korzystanie tylko do celów redakcyjnych\or Korzystanie tylko po odpowiednim udokumentowaniu\or Korzystanie jest dozwolone bez żadnych ograniczeń\fi\\
+\end{tabular}
+}
+\newpage

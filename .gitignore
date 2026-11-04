@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Test and analysis output
+.coverage
+.coverage.*
+htmlcov/
+
+# results/
+results/csv/scores_test.npz
+
+# Optional Python tooling caches
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Packaging output
+build/
+dist/
+
+# Data and models (ignoring heavy artifacts, keeping folder structure)
+data/raw/*
+!data/raw/.gitkeep
+models/*
+!models/.gitkeep
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.synctex.gz
+
+# OS generated files
+.DS_Store
+Thumbs.db

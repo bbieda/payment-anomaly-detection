@@ -1,0 +1,75 @@
+% SZKIC: tekst przygotowany z pomocą AI. Przepisz go własnymi słowami, sprawdź źródła i uwzględnij to w deklaracji poziomu AI.
+\chapter{Metody uczenia maszynowego w detekcji anomalii}
+\label{ch:ml}
+
+\section{Detekcja anomalii: ujęcie ogólne}
+Anomalia to obserwacja istotnie odbiegająca od zachowania uznawanego za normalne. Wyróżnia się anomalie punktowe, kontekstowe (nietypowe w danym kontekście, np. o danej porze) i zbiorowe \cite{chandola2009}. Wykrywanie oszustw płatniczych można ujmować na dwa sposoby: jako klasyfikację binarną na danych z etykietami (uczenie nadzorowane) albo jako szukanie obserwacji odstających bez użycia etykiet (uczenie nienadzorowane). Oba podejścia porównuje się w literaturze \cite{niu2019} i łączy w rozwiązaniach hybrydowych \cite{carcillo2019}.
+
+\section{Algorytmy uczenia nadzorowanego}
+\subsection{Regresja logistyczna}
+Model liniowy zwracający prawdopodobieństwo klasy dodatniej $p(y{=}1\mid\mathbf{x})=\sigma(\mathbf{w}^\top\mathbf{x}+b)$, gdzie $\sigma(z)=1/(1+e^{-z})$. Parametry wyznacza się minimalizując entropię krzyżową z regularyzacją. Służy jako punkt odniesienia (ang. \emph{baseline}).
+
+\subsection{Drzewa decyzyjne i Random Forest}
+Drzewo decyzyjne dzieli przestrzeń cech sekwencją podziałów wybieranych tak, aby zmniejszać niejednorodność węzłów, np. nieczystość Giniego $G=1-\sum_k p_k^2$ \cite{breiman1984}. Pojedyncze drzewa łatwo się przeuczają. Random Forest buduje wiele drzew na próbach bootstrapowych, losując przy każdym podziale podzbiór cech, a decyzję podejmuje przez uśrednienie lub głosowanie \cite{breiman2001}, co zmniejsza wariancję modelu.
+
+\subsection{Gradient boosting i XGBoost}
+W boostingu model jest sumą drzew budowanych kolejno, z których każde poprawia błędy poprzednich. XGBoost minimalizuje funkcję celu z regularyzacją \cite{chen2016}
+\begin{equation}
+  \mathcal{L}=\sum_i l(y_i,\hat{y}_i)+\sum_k \Omega(f_k),\qquad \Omega(f)=\gamma T+\tfrac{1}{2}\lambda\sum_{j=1}^{T}w_j^2,
+\end{equation}
+gdzie $T$ to liczba liści drzewa, a $w_j$ ich wagi. Istotne parametry to m.in. głębokość drzew, współczynnik uczenia i \texttt{scale\_pos\_weight}, służący do ważenia klasy rzadkiej.
+
+\section{Algorytmy uczenia nienadzorowanego}
+\subsection{Isolation Forest}
+Metoda opiera się na obserwacji, że anomalie są „nieliczne i różne”, więc izoluje się je losowymi podziałami po mniejszej liczbie kroków niż punkty normalne \cite{liu2008}. Dla punktu $x$ i próby $n$ obserwacji wynik anomalii wynosi
+\begin{equation}
+  s(x,n)=2^{-\frac{E[h(x)]}{c(n)}},\qquad c(n)=2H(n-1)-\frac{2(n-1)}{n},
+\end{equation}
+gdzie $h(x)$ to długość ścieżki izolacji w drzewie, a $H(i)\approx\ln i+0{,}5772$ liczba harmoniczna. Wartości bliskie 1 wskazują anomalię. Złożoność uczenia jest liniowa względem liczby próbek.
+
+\subsection{Local Outlier Factor}
+LOF porównuje lokalną gęstość punktu z gęstością jego sąsiadów \cite{breunig2000}. Przy odległości osiągalności $\text{reach-dist}_k(p,o)=\max\{k\text{-dist}(o),d(p,o)\}$ lokalna gęstość to $\text{lrd}_k(p)=|N_k(p)|/\sum_{o\in N_k(p)}\text{reach-dist}_k(p,o)$, a
+\begin{equation}
+  \text{LOF}_k(p)=\frac{1}{|N_k(p)|}\sum_{o\in N_k(p)}\frac{\text{lrd}_k(o)}{\text{lrd}_k(p)}.
+\end{equation}
+Wartości istotnie większe od 1 oznaczają punkt w rzadszym otoczeniu niż jego sąsiedzi. Aby oceniać nowe obserwacje, stosuje się wariant wykrywania nowości (ang. \emph{novelty detection}).
+
+\subsection{Metody oparte na rekonstrukcji i inne}
+W badaniu \cite{niu2019} porównano także One-Class SVM, autoenkoder, ograniczoną maszynę Boltzmanna (RBM) i sieć GAN. Autoenkodery uczą się odtwarzać dane normalne, a wynikiem anomalii jest błąd rekonstrukcji. \todo{rozszerzyć o opis wybranych metod, jeśli wejdą do eksperymentów}
+
+\section{Problem niezbalansowania klas}
+Przy rzadkiej klasie dodatniej klasyfikator minimalizujący błąd globalny może ignorować oszustwa. Stosuje się: (i) ważenie klas, np. $w_c=n/(2n_c)$ dla klas binarnych, (ii) niedopróbkowanie klasy większościowej, (iii) nadpróbkowanie klasy rzadkiej, w tym SMOTE, który generuje syntetyczne obserwacje $\mathbf{x}_{\text{nowa}}=\mathbf{x}_i+\lambda(\mathbf{x}_{nn}-\mathbf{x}_i)$, $\lambda\sim U(0,1)$, na odcinku między obserwacją a jej sąsiadem z klasy rzadkiej \cite{chawla2002}. Próbkowanie stosuje się wyłącznie do zbioru treningowego. Zmiana proporcji klas zniekształca prawdopodobieństwa zwracane przez model, więc dobór progu wymaga ostrożności \cite{dalpozzolo2018}.
+
+\section{Metryki ewaluacyjne dla klas niezbalansowanych}
+Z macierzy pomyłek (TP, FP, FN, TN) wyznacza się
+\begin{equation}
+  \text{Precision}=\frac{TP}{TP+FP},\qquad \text{Recall}=\frac{TP}{TP+FN},\qquad F_1=\frac{2\,\text{Precision}\cdot\text{Recall}}{\text{Precision}+\text{Recall}}.
+\end{equation}
+Dokładność (ang. \emph{accuracy}) jest przy 0{,}17\% oszustw bezużyteczna, bo model oznaczający wszystkie transakcje jako normalne osiąga ponad 99{,}8\%. Krzywa ROC przedstawia czułość względem odsetka fałszywych alarmów, a ROC AUC jest polem pod nią. Krzywa precision--recall i średnia precyzja $\text{AP}=\sum_n(R_n-R_{n-1})P_n$ lepiej oddają jakość detekcji rzadkiej klasy, ponieważ nie uwzględniają prawdziwie ujemnych, a poziom losowy wynosi odsetek oszustw \cite{saito2015}. Próg decyzyjny wybiera się na zbiorze walidacyjnym, np. maksymalizując $F_1$ lub minimalizując koszt $C=c_{FN}\cdot FN+c_{FP}\cdot FP$.
+
+\section{Przegląd istniejących rozwiązań (State-of-the-Art)}
+Praca \cite{dalpozzolo2018}, powstała we współpracy z partnerem przemysłowym, formalizuje problem detekcji oszustw w warunkach rzeczywistych: niezbalansowanie, dryf koncepcji i opóźnienie weryfikacji oraz miary jakości dostosowane do pracy z alertami. Strategię uczenia przetestowano na ponad 75 mln transakcji e-commerce.
+
+Praca \cite{niu2019} porównuje na zbiorze \cite{kaggle_ulb} sześć modeli nadzorowanych i cztery nienadzorowane, stosując miarę AUROC. Najlepsze wyniki uzyskały XGBoost i Random Forest, a wśród modeli nienadzorowanych RBM (tab.~\ref{tab:niu}). Autorzy wnioskują, że metody nadzorowane są nieznacznie lepsze, lecz nienadzorowane są obiecujące, gdy brakuje etykiet. Zastosowano losowe niedopróbkowanie i losową walidację krzyżową.
+
+\begin{table}[H]
+\centering
+\caption{Wybrane wyniki (AUROC) z pracy \cite{niu2019} dla zbioru Kaggle.}
+\label{tab:niu}
+\begin{tabular}{lll}
+\toprule
+Model & Rodzaj & AUROC \\
+\midrule
+XGBoost & nadzorowany & 0{,}989 \\
+Random Forest & nadzorowany & 0{,}988 \\
+RBM & nienadzorowany & 0{,}961 \\
+\bottomrule
+\end{tabular}\\[4pt]
+\zrodlo{\cite{niu2019}}
+\end{table}
+
+Praca \cite{carcillo2019} pokazuje, że łączenie technik nadzorowanych i nienadzorowanych (wyniki odstępstwa liczone na różnych poziomach granulacji) poprawia skuteczność wykrywania na rzeczywistym, oznaczonym zbiorze.
+
+\todo{dodać 1--2 nowsze prace przeglądowe (2022 i później) oraz wskazać lukę badawczą.}
+
+\paragraph{Miejsce niniejszej pracy.} W odróżnieniu od części publikacji porównawczych, które ograniczają się do ewaluacji offline z losowym podziałem i miarą ROC AUC \cite{niu2019}, w pracy zastosowano podział czasowy, PR-AUC, wybór progu na walidacji i analizę niepewności wyników, a porównanie uzupełniono działającym systemem webowym.

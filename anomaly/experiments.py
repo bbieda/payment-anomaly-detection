@@ -1,0 +1,242 @@
+"""Eksperymenty do rozdziału „Badania własne”: wyniki główne, replikacja ustawienia z [2], wagi vs SMOTE,
+okna czasowe, przedziały ufności (bootstrap). Zapisuje CSV, tabele LaTeX i wykresy.
+
+python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
+Szybki test:  python -m anomaly.experiments --synthetic 20000 --fast --seeds 2 --bootstrap 100 --out /tmp/res
+"""
+import argparse
+import json
+import platform
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+
+from . import report
+from .data import FEATURES, TARGET, TIME, load_raw, temporal_split
+from .metrics import best_f1_threshold, evaluate
+from .models import REGISTRY, anomaly_score
+from .train import fit_pipeline
+
+METRICS = ["pr_auc", "roc_auc", "f1", "precision", "recall"]
+SUPERVISED = ["logreg", "random_forest", "xgboost"]
+FAST = {"random_forest": {"n_estimators": 50}, "xgboost": {"n_estimators": 100},
+        "isolation_forest": {"n_estimators": 50}}
+# Wartości AUROC podane w pracy [2] (tylko modele, które mamy również u siebie)
+NIU_REPORTED = {"xgboost": 0.989, "random_forest": 0.988}
+
+
+def _params(name, fast):
+    return FAST.get(name) if fast else None
+
+
+def _agg(rows, keys=METRICS):
+    d = pd.DataFrame(rows)
+    out = {}
+    for k in keys:
+        out[f"{k}_mean"], out[f"{k}_std"] = float(d[k].mean()), float(d[k].std(ddof=0))
+    return out
+
+
+def split_summary(splits):
+    rows = [{"split": n, "n": len(d), "n_fraud": int(d[TARGET].sum()), "fraud_pct": 100 * d[TARGET].mean(),
+             "t_from": d[TIME].min(), "t_to": d[TIME].max()} for n, d in zip(("train", "walidacja", "test"), splits)]
+    return pd.DataFrame(rows)
+
+
+def bootstrap_ci(y, s, thr, n_boot=500, seed=0, alpha=0.05):
+    """Percentylowe przedziały ufności metryk na zbiorze testowym (próbkowanie ze zwracaniem)."""
+    rng = np.random.default_rng(seed)
+    y, s = np.asarray(y), np.asarray(s)
+    pred, n = (s >= thr).astype(int), len(y)
+    vals = {k: [] for k in ("pr_auc", "roc_auc", "f1", "precision", "recall")}
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        yb = y[idx]
+        if yb.sum() == 0 or yb.sum() == n:
+            continue
+        sb, pb = s[idx], pred[idx]
+        vals["pr_auc"].append(average_precision_score(yb, sb))
+        vals["roc_auc"].append(roc_auc_score(yb, sb))
+        vals["f1"].append(f1_score(yb, pb, zero_division=0))
+        vals["precision"].append(precision_score(yb, pb, zero_division=0))
+        vals["recall"].append(recall_score(yb, pb, zero_division=0))
+    q = [100 * alpha / 2, 100 * (1 - alpha / 2)]
+    return {k: tuple(np.percentile(v, q)) if v else (np.nan, np.nan) for k, v in vals.items()}
+
+
+def run_main(splits, models, seeds, n_boot, fast=False):
+    train, val, test = splits
+    rows, scores, cms = [], {}, {}
+    for name in models:
+        spec, per_seed = REGISTRY[name], []
+        for sd in seeds:
+            pipe, _, fit_s = fit_pipeline(name, train, _params(name, fast), seed=sd)
+            thr = best_f1_threshold(val[TARGET], anomaly_score(pipe, val[FEATURES], spec.kind))
+            st = anomaly_score(pipe, test[FEATURES], spec.kind)
+            m = evaluate(test[TARGET], st, thr)
+            per_seed.append({**{k: m[k] for k in METRICS}, "fit_s": fit_s})
+            if sd == seeds[0]:
+                t0 = time.perf_counter()
+                one = test[FEATURES].head(100)
+                for i in range(len(one)):
+                    anomaly_score(pipe, one.iloc[[i]], spec.kind)
+                lat = (time.perf_counter() - t0) / len(one) * 1000
+                scores[name] = (test[TARGET].to_numpy(), st, thr)
+                cms[name] = m["confusion_matrix"]
+                seed0 = m
+        row = {"model": name, "kind": spec.kind, **_agg(per_seed, METRICS + ["fit_s"]), "latency_ms": lat}
+        b = bootstrap_ci(test[TARGET], scores[name][1], scores[name][2], n_boot)
+        for k in ("pr_auc", "roc_auc", "f1", "recall"):
+            row[f"{k}_seed0"], (row[f"{k}_lo"], row[f"{k}_hi"]) = seed0[k], b[k]
+        rows.append(row)
+        print(f"[main] {name}: PR-AUC={row['pr_auc_mean']:.3f}±{row['pr_auc_std']:.3f}")
+    return pd.DataFrame(rows), scores, cms
+
+
+def run_niu(df, models, n_folds=5, undersample=1.0, seed=42, fast=False):
+    """Ustawienie zbliżone do [2]: losowa walidacja krzyżowa, AUROC, niedopróbkowanie dla modeli nadzorowanych.
+    Stosunek klas po niedopróbkowaniu (undersample = n_norma/n_oszustwa) to założenie, nie dane z [2]."""
+    skf = StratifiedKFold(n_folds, shuffle=True, random_state=seed)
+    rows = []
+    for name in models:
+        spec, res = REGISTRY[name], []
+        for tr_i, te_i in skf.split(df[FEATURES], df[TARGET]):
+            tr, te = df.iloc[tr_i], df.iloc[te_i]
+            if spec.kind == "supervised" and undersample:
+                pos, neg = tr[tr[TARGET] == 1], tr[tr[TARGET] == 0]
+                neg = neg.sample(min(len(neg), int(len(pos) * undersample)), random_state=seed)
+                tr = pd.concat([pos, neg]).sample(frac=1, random_state=seed)
+            pipe, _, _ = fit_pipeline(name, tr, _params(name, fast), seed=seed)
+            s = anomaly_score(pipe, te[FEATURES], spec.kind)
+            res.append({"auroc": roc_auc_score(te[TARGET], s), "pr_auc": average_precision_score(te[TARGET], s)})
+        a = _agg(res, ["auroc", "pr_auc"])
+        rows.append({"model": name, "kind": spec.kind, **a, "auroc_niu": NIU_REPORTED.get(name, np.nan)})
+        print(f"[niu] {name}: AUROC={a['auroc_mean']:.3f}±{a['auroc_std']:.3f}")
+    return pd.DataFrame(rows)
+
+
+def _variants(seed):
+    from imblearn.over_sampling import SMOTE
+    from imblearn.under_sampling import RandomUnderSampler
+    return {"brak": dict(weighted=False), "wagi klas": dict(weighted=True),
+            "SMOTE": dict(weighted=False, sampler=SMOTE(sampling_strategy=0.1, random_state=seed)),
+            "undersampling": dict(weighted=False, sampler=RandomUnderSampler(sampling_strategy=0.1, random_state=seed))}
+
+
+def run_imbalance(splits, models, seeds, fast=False):
+    train, val, test = splits
+    rows = []
+    for name in models:
+        spec = REGISTRY[name]
+        for vname in ("brak", "wagi klas", "SMOTE", "undersampling"):
+            res = []
+            for sd in seeds:
+                pipe, _, _ = fit_pipeline(name, train, _params(name, fast), seed=sd, **_variants(sd)[vname])
+                thr = best_f1_threshold(val[TARGET], anomaly_score(pipe, val[FEATURES], spec.kind))
+                res.append(evaluate(test[TARGET], anomaly_score(pipe, test[FEATURES], spec.kind), thr))
+            rows.append({"model": name, "variant": vname, **_agg(res)})
+            print(f"[imb] {name}/{vname}: PR-AUC={rows[-1]['pr_auc_mean']:.3f}")
+    return pd.DataFrame(rows)
+
+
+def rolling_splits(df, n_folds=4, frac=0.15):
+    """Okna z przesuwanym początkiem: test = ostatnie 15%, potem poprzednie okna; walidacja tuż przed testem."""
+    df = df.sort_values(TIME, kind="stable").reset_index(drop=True)
+    n = len(df)
+    out = []
+    for i in range(n_folds):
+        end, te0, va0 = int(n * (1 - i * frac)), int(n * (1 - (i + 1) * frac)), int(n * (1 - (i + 2) * frac))
+        out.append((df.iloc[:va0], df.iloc[va0:te0], df.iloc[te0:end]))
+    return out[::-1]
+
+
+def run_rolling(df, models, n_folds=4, seed=42, fast=False):
+    rows, counts = [], []
+    for w, (tr, va, te) in enumerate(rolling_splits(df, n_folds), 1):
+        counts.append(int(te[TARGET].sum()))
+        for name in models:
+            spec = REGISTRY[name]
+            pipe, _, _ = fit_pipeline(name, tr, _params(name, fast), seed=seed)
+            thr = best_f1_threshold(va[TARGET], anomaly_score(pipe, va[FEATURES], spec.kind))
+            m = evaluate(te[TARGET], anomaly_score(pipe, te[FEATURES], spec.kind), thr)
+            rows.append({"window": w, "model": name, "n_fraud_test": counts[-1], **{k: m[k] for k in METRICS}})
+        print(f"[okna] okno {w}: oszustw w teście = {counts[-1]}")
+    long = pd.DataFrame(rows)
+    summ = long.groupby("model", sort=False).agg(**{f"{k}_{f}": (k, f) for k in METRICS for f in ("mean", "std")}).reset_index()
+    summ = summ.fillna(0.0)
+    return long, summ, counts
+
+
+def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1.0, fast=False):
+    out = Path(out)
+    (out / "csv").mkdir(parents=True, exist_ok=True)
+    seeds = [42 + i for i in range(n_seeds)]
+    splits = temporal_split(df)
+    t = out / "tables"
+    f = out / "figures"
+    sp = split_summary(splits)
+    sp.to_csv(out / "csv" / "podzial.csv", index=False)
+    report.write(t / "tab_podzial.tex", report.tab_split(sp))
+    todo = {"main", "niu", "imbalance", "rolling"} if "all" in what else set(what)
+    if "main" in todo:
+        summ, scores, cms = run_main(splits, models, seeds, n_boot, fast)
+        summ.to_csv(out / "csv" / "wyniki_glowne.csv", index=False)
+        np.savez_compressed(out / "csv" / "scores_test.npz", **{n: v[1] for n, v in scores.items()},
+                            y_test=next(iter(scores.values()))[0])
+        report.write(t / "tab_wyniki_glowne.tex", report.tab_main(summ))
+        report.write(t / "tab_przedzialy.tex", report.tab_ci(summ))
+        report.plot_curves({n: (v[0], v[1]) for n, v in scores.items()}, "pr", f / "krzywe_pr")
+        report.plot_curves({n: (v[0], v[1]) for n, v in scores.items()}, "roc", f / "krzywe_roc")
+        report.plot_ci(summ, f / "przedzialy_pr_auc")
+        report.plot_confusion(cms, f / "macierze_pomylek")
+    if "niu" in todo:
+        d = run_niu(df, models, folds, undersample, seeds[0], fast)
+        d.to_csv(out / "csv" / "niu.csv", index=False)
+        report.write(t / "tab_niu.tex", report.tab_niu(d))
+        report.plot_niu(d, f / "niu_auroc")
+    if "imbalance" in todo:
+        d = run_imbalance(splits, [m for m in models if m in SUPERVISED], seeds[:3], fast)
+        d.to_csv(out / "csv" / "niezbalansowanie.csv", index=False)
+        report.write(t / "tab_niezbalansowanie.tex", report.tab_imb(d))
+        report.plot_imbalance(d, f / "niezbalansowanie")
+    if "rolling" in todo:
+        long, summ, counts = run_rolling(df, models, seed=seeds[0], fast=fast)
+        long.to_csv(out / "csv" / "okna.csv", index=False)
+        report.write(t / "tab_okna.tex", report.tab_windows(summ, counts))
+        report.plot_windows(long, f / "okna_pr_auc")
+    info = {"created": datetime.now(timezone.utc).isoformat(), "python": platform.python_version(), "seeds": seeds,
+            "bootstrap": n_boot, "folds": folds, "undersample": undersample, "fast": fast, "what": sorted(todo),
+            "models": models, "n_rows": len(df)}
+    (out / "run_info.json").write_text(json.dumps(info, indent=2))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default="data/raw/creditcard.csv")
+    ap.add_argument("--synthetic", type=int, default=0, help="dane syntetyczne (liczba wierszy) zamiast pliku")
+    ap.add_argument("--out", default="results")
+    ap.add_argument("--models", default="all")
+    ap.add_argument("--what", default="all", help="all lub lista: main,niu,imbalance,rolling")
+    ap.add_argument("--seeds", type=int, default=5)
+    ap.add_argument("--bootstrap", type=int, default=500)
+    ap.add_argument("--folds", type=int, default=5)
+    ap.add_argument("--undersample", type=float, default=1.0, help="stosunek normalnych do oszustw po niedopróbkowaniu ([2]-like)")
+    ap.add_argument("--fast", action="store_true", help="mniej drzew (tylko do szybkich testów)")
+    a = ap.parse_args()
+    if a.synthetic:
+        from .synthetic import make_synthetic
+        df = make_synthetic(a.synthetic, 0.01, seed=1)
+    else:
+        df = load_raw(a.data)
+    models = list(REGISTRY) if a.models == "all" else a.models.split(",")
+    run_all(df, a.out, models, a.what.split(","), a.seeds, a.bootstrap, a.folds, a.undersample, a.fast)
+    print("Gotowe:", a.out)
+
+
+if __name__ == "__main__":
+    main()

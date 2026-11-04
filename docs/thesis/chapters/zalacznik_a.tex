@@ -1,0 +1,20 @@
+\chapter*{Załącznik A}
+\addcontentsline{toc}{chapter}{Załącznik A}
+
+Spis zawartości dołączonego nośnika (repozytorium kodu):
+\begin{itemize}
+  \item tekst pracy w formacie PDF,
+  \item \texttt{anomaly/} -- moduł uczenia maszynowego (dane, modele, metryki, trening),
+  \item \texttt{backend/} -- interfejs API (FastAPI),
+  \item \texttt{notebooks/} -- eksperymenty i analiza danych,
+  \item \texttt{tests/} -- testy automatyczne.
+\end{itemize}
+
+Komendy przydatne podczas uruchamiania programu:
+\begin{lstlisting}
+pip install -r requirements.txt     # instalacja środowiska
+python -m anomaly.train --data data/raw/creditcard.csv --models all
+uvicorn backend.app.main:app --reload     # uruchomienie API
+pytest                                     # testy
+\end{lstlisting}
+\todo{uzupełnić po ukończeniu implementacji (frontend, dane)}
