@@ -1,26 +1,43 @@
-# Frontend (React + Vite)
+# Frontend (React + Vite + Recharts)
 
-Inicjalizacja (raz, w katalogu głównym repo; wymaga Node.js 20+):
+Panel monitorujący do systemu detekcji anomalii. Komunikuje się z API FastAPI (`/api/...`).
+
+## Uruchomienie
 
 ```bash
-npm create vite@latest frontend -- --template react   # przy pytaniu o istniejący katalog: zachowaj README
-cd frontend
-npm install
-npm install recharts
+# 1) backend (z katalogu głównego repo; modele muszą być wytrenowane: python -m anomaly.train --models all)
+uvicorn backend.app.main:app --reload            # http://127.0.0.1:8000  (Swagger: /docs)
+
+# 2a) tryb deweloperski (proxy /api -> :8000), Node.js 18+
+cd frontend && npm install && npm run dev        # http://localhost:5173
+
+# 2b) albo jedna komenda: zbudowany panel serwuje sam backend
+cd frontend && npm install && npm run build      # powstaje frontend/dist
+uvicorn backend.app.main:app                     # panel pod http://127.0.0.1:8000/
 ```
 
-Proxy do API w `vite.config.js` (unika problemów z CORS w trakcie developmentu):
+Testy (smoke testy renderowania z zamockowanym API): `npm test`. Inny adres API: zmienna `VITE_API_URL`.
 
-```js
-export default defineConfig({
-  plugins: [react()],
-  server: { proxy: { '/api': 'http://127.0.0.1:8000' } },
-})
+## Moduły (strony)
+| Moduł | Co robi | Endpointy |
+|---|---|---|
+| Dashboard | strumień transakcji na żywo, alerty, wykres wyniku z progiem, liczniki TP/FP/FN | `/api/stream/next`, `/api/sources` |
+| Modele | lista, aktywacja, ponowny trening z parametrami | `/api/models*` |
+| Metryki | PR/ROC, macierz pomyłek, porównanie modeli | `/api/metrics*` |
+| Predykcja | ocena pojedynczej transakcji | `/api/predict` |
+| Sandbox | symulacja, import CSV, profil użytkownika, lista źródeł | `/api/sandbox/*`, `/api/sources` |
+| Historia | statystyki i historia ocen z bazy, czyszczenie | `/api/stats`, `/api/transactions*` |
+
+## Jak dodać nowy moduł
+1. Plik `src/modules/MojModul.jsx` (komponent domyślny; dane przez `api` z `src/api.js`, modele przez `useModels()`).
+2. Jedna linia w `src/modules/index.js`: `{ id: 'moj', label: 'Mój moduł', component: MojModul }`.
+Nawigacja, routing (`#/moj`) i test nawigacji biorą listę z rejestru. Nowy endpoint backendu = nowa funkcja w `src/api.js`.
+
+## Struktura
 ```
-
-Widoki do zrobienia (kolejność):
-1. **Modele** – `GET /api/models`, przełączanie aktywnego (`POST /api/models/activate`).
-2. **Metryki** – `GET /api/metrics` (słupki: PR-AUC, F1...) i `GET /api/metrics/{name}` (krzywe ROC/PR, macierz pomyłek).
-3. **Predykcja** – formularz/przycisk wysyłający transakcję do `POST /api/predict`.
-4. **Dashboard** – `GET /api/transactions/recent` (polling co 2 s), anomalie na czerwono.
-5. **Retrain** – `POST /api/models/retrain` + `GET /api/models/retrain/status`.
+src/api.js        klient API (jedyne miejsce z adresami URL)
+src/store.jsx     wspólny stan: modele, status serwera
+src/ui.jsx        elementy wielokrotnego użytku (Card, Table, Stat, ...)
+src/modules/      strony + rejestr index.js
+src/__tests__/    smoke testy (vitest + jsdom)
+```
