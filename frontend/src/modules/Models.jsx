@@ -68,7 +68,7 @@ export default function Models() {
             { key: 'f1', header: 'F1', align: 'right', render: (m) => fmt(m.metrics?.f1) },
             { key: 'thr', header: 'Próg', align: 'right', render: (m) => fmt(m.threshold) },
             { key: 'at', header: 'Wytrenowany', render: (m) => time(m.trained_at) },
-            { key: 'act', header: '', render: (m) => (m.active ? <Badge tone="active">aktywny</Badge> : <button className="btn ghost" onClick={() => activate(m.name)}>Aktywuj</button>) },
+            { key: 'act', header: '', render: (m) => (m.active ? <button className="btn is-active" disabled aria-pressed="true">Aktywny</button> : <button className="btn ghost" onClick={() => activate(m.name)}>Aktywuj</button>) },
           ]}
         />
         <p className="muted">Schemat <code>kaggle_pca</code> przyjmuje tylko dane w formacie zbioru Kaggle (V1–V28). Schemat <code>generic_tx</code> działa na dowolnych transakcjach (kwota, czas), np. z własnego pliku.</p>

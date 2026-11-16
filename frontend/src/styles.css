@@ -25,6 +25,7 @@ textarea { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; f
 button.btn { background: var(--fg); color: #fff; border: 1px solid var(--fg); border-radius: 4px; padding: 7px 14px; cursor: pointer; }
 button.btn.ghost { background: #fff; color: var(--fg); }
 button.btn:disabled { opacity: .5; cursor: default; }
+button.btn.is-active, button.btn.is-active:disabled { background: var(--fg); color: #fff; opacity: 1; cursor: default; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
