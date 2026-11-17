@@ -30,7 +30,7 @@ backend/app/  FastAPI app: routers, scoring service, connectors, model store, da
 frontend/     React dashboard (see frontend/README.md)
 notebooks/    EDA and experiments
 tests/        pytest suite
-docs/         architecture, experiments, bank API options, concepts to learn, thesis (LaTeX)
+docs/         architecture, experiments
 data/raw/     datasets (not in git)      models/   trained models (not in git)
 ```
 
@@ -120,7 +120,7 @@ Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv
   Results are academic and not production-ready.
 
 ### Documentation
-`docs/architecture.md`, `docs/experiments.md`, `docs/bank_api.md`, `docs/pojecia-do-nauki.md` (Polish), `frontend/README.md`.
+`docs/architecture.md`, `docs/experiments.md` (Polish), `frontend/README.md`.
 
 ### Status
 - [x] ML pipeline, API, tests, sandbox, experiment runner
@@ -161,7 +161,7 @@ backend/app/  aplikacja FastAPI: routery, serwis oceny, konektory, magazyn model
 frontend/     panel React (zob. frontend/README.md)
 notebooks/    EDA i eksperymenty
 tests/        testy pytest
-docs/         architektura, eksperymenty, API bankowe, pojęcia do nauki, praca (LaTeX)
+docs/         architektura, eksperymenty
 data/raw/     dane (poza gitem)          models/   wytrenowane modele (poza gitem)
 ```
 
@@ -251,7 +251,7 @@ Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`
   Wyniki mają charakter akademicki i nie nadają się do zastosowań produkcyjnych.
 
 ### Dokumentacja
-`docs/architecture.md`, `docs/experiments.md`, `docs/bank_api.md`, `docs/pojecia-do-nauki.md`, `frontend/README.md`.
+`docs/architecture.md`, `docs/experiments.md`, `frontend/README.md`.
 
 ### Status
 - [x] Pipeline ML, API, testy, sandbox, skrypt eksperymentów

@@ -29,12 +29,6 @@ Próba oceny transakcji innego schematu zwraca czytelny błąd 422.
 Wpis w `REGISTRY` (anomaly/models.py): nazwa, rodzaj, builder, parametry domyślne. Reszta (trening, metryki,
 API, panel) działa bez zmian.
 
-## Do zrobienia (świadomie odłożone)
-- migracje bazy (Alembic), osobna tabela `models`, wersjonowanie modeli,
-- skala ryzyka z percentyli wyniku (zamiast high/low),
-- autoryzacja użytkowników (obecnie brak), RODO przy własnych transakcjach,
-- frontend (React), konektor bankowy (PoC).
-
 ## Frontend (v0.3)
 Panel React (`frontend/`) jest osobną warstwą nad API: `api.js` (klient), `store.jsx` (modele), `modules/` (strony) z rejestrem
 `modules/index.js`. Backend może serwować zbudowany panel (`frontend/dist`) pod `/`, więc demo wymaga jednej komendy.
