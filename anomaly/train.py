@@ -20,6 +20,7 @@ def fit_pipeline(name, train, params=None, seed=42, normal_only=False, weighted=
     spec = REGISTRY[name]
     p = {**spec.defaults, **(params or {})}
     Xtr, ytr = train[FEATURES], train[TARGET]
+    normal_only = normal_only or spec.normal_only          # autoenkoder zawsze uczy się tylko na normalnych
     if spec.kind == "unsupervised" and normal_only:      # wariant „novelty”: uczenie tylko na normalnych
         mask = ytr == 0
         Xtr, ytr = Xtr[mask], ytr[mask]
@@ -54,7 +55,7 @@ def train_one(name, splits, params=None, seed=42, normal_only=False, out_dir="mo
 
     meta = {
         "name": name, "kind": spec.kind, "schema": "kaggle_pca", "params": p, "seed": seed,
-        "normal_only": normal_only,
+        "normal_only": spec.kind == "unsupervised" and (normal_only or spec.normal_only),
         "threshold": thr, "trained_at": datetime.now(timezone.utc).isoformat(),
         "fit_seconds": fit_seconds, "predict_latency_ms": latency_ms,
         "split": {"train": len(train), "val": len(val), "test": len(test)},

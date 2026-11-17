@@ -43,3 +43,9 @@ Przy każdym: po co, gdzie w pracy/kodzie, gdzie szukać (fraza do wyszukiwarki 
 ## Kolejność nauki (propozycja)
 Tydzień 1: A1–A5, B9–B13 (to wystarczy do spotkania II). Tydzień 2: A6–A7, C19–C20, B14–B15. Później: reszta wg potrzeb pracy.
 Tip: dla każdego modelu przeczytaj dokumentację scikit-learn/XGBoost (sekcja „User Guide”) i spróbuj w notebooku na danych syntetycznych (`anomaly/synthetic.py`).
+
+## F. Nowe modele i analiza
+28. **SVM i jądro RBF** (margines, wektory podparcia, parametr `gamma`) oraz **One-Class SVM** (`nu` jako górne ograniczenie odsetka outlierów i dolne wektorów podparcia).
+29. **Autoenkoder i błąd rekonstrukcji** (koder, wąskie gardło, dekoder; dlaczego trening tylko na normalnych; wczesne zatrzymanie).
+30. **Wrażliwość metod odległościowych i jądrowych na skalę cech** (długi ogon kwoty, `log1p`).
+31. **Bootstrap parami** (te same próbki dla obu modeli, przedział percentylowy różnicy, ograniczenia: tylko zmienność testu, wielokrotne porównania).

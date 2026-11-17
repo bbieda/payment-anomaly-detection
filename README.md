@@ -13,7 +13,7 @@ highly imbalanced dataset.
 **Stack:** Python, scikit-learn, XGBoost, FastAPI, SQLAlchemy (SQLite, PostgreSQL planned), React (Vite, Recharts).
 
 ### Features
-- **Models:** logistic regression (baseline), Random Forest, XGBoost, Isolation Forest, Local Outlier Factor.
+- **Models:** logistic regression (baseline), Random Forest, XGBoost (supervised); Isolation Forest, Local Outlier Factor, One-Class SVM, autoencoder (unsupervised; the autoencoder trains on normal transactions only).
 - **Evaluation:** chronological train/validation/test split, decision threshold chosen on validation data, metrics for
   imbalanced classes (PR-AUC, ROC AUC, precision, recall, F1, confusion matrix), multiple seeds, bootstrap confidence intervals.
 - **API (FastAPI):** scoring, model management (activate, retrain), metrics, prediction history and statistics.
@@ -126,7 +126,8 @@ Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv
 - [x] ML pipeline, API, tests, sandbox, experiment runner
 - [x] Web dashboard (live stream, models, metrics, prediction, sandbox, history)
 - [x] First experiments on the full dataset
-- [ ] LOF diagnosis, paired bootstrap, optional One-Class SVM / autoencoder, hyperparameter tuning
+- [x] One-Class SVM, autoencoder, paired bootstrap of PR-AUC differences (not yet run on the real data)
+- [ ] LOF diagnosis, hyperparameter tuning
 - [ ] Model versioning in the database, authentication
 - [ ] Bank connector proof of concept
 
@@ -143,7 +144,7 @@ płatniczych wraz z porównawczą analizą algorytmów uczenia nadzorowanego i n
 **Stack:** Python, scikit-learn, XGBoost, FastAPI, SQLAlchemy (SQLite, docelowo PostgreSQL), React (Vite, Recharts).
 
 ### Funkcje
-- **Modele:** regresja logistyczna (baseline), Random Forest, XGBoost, Isolation Forest, Local Outlier Factor.
+- **Modele:** regresja logistyczna (baseline), Random Forest, XGBoost (nadzorowane); Isolation Forest, Local Outlier Factor, One-Class SVM, autoenkoder (nienadzorowane; autoenkoder uczy się tylko na transakcjach normalnych).
 - **Ewaluacja:** podział czasowy train/walidacja/test, próg decyzyjny wybierany na walidacji, miary dla klas niezbalansowanych
   (PR-AUC, ROC AUC, precision, recall, F1, macierz pomyłek), wiele seedów, przedziały ufności (bootstrap).
 - **API (FastAPI):** ocena transakcji, zarządzanie modelami (aktywacja, ponowny trening), metryki, historia i statystyki.
@@ -256,7 +257,8 @@ Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`
 - [x] Pipeline ML, API, testy, sandbox, skrypt eksperymentów
 - [x] Panel webowy (strumień na żywo, modele, metryki, predykcja, sandbox, historia)
 - [x] Pierwsze eksperymenty na pełnym zbiorze
-- [ ] Diagnoza LOF, bootstrap parami, opcjonalnie One-Class SVM i autoenkoder, strojenie hiperparametrów
+- [x] One-Class SVM, autoenkoder, bootstrap parami różnic PR-AUC (jeszcze nieuruchomione na prawdziwych danych)
+- [ ] Diagnoza LOF, strojenie hiperparametrów
 - [ ] Wersjonowanie modeli w bazie, uwierzytelnianie
 - [ ] PoC konektora bankowego
 
