@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from sklearn.metrics import precision_recall_curve, roc_curve  # noqa: E402
 
-DISPLAY = {"logreg": "Regresja logistyczna", "random_forest": "Random Forest", "xgboost": "XGBoost",
-           "isolation_forest": "Isolation Forest", "lof": "LOF"}
+DISPLAY = {"logreg": "Regresja logistyczna", "random_forest": "Random Forest",
+           "xgboost": "XGBoost", "isolation_forest": "Isolation Forest", "lof": "LOF", "ocsvm": "One-Class SVM",
+           "autoencoder": "Autoenkoder"}
 KIND_PL = {"supervised": "nadzorowany", "unsupervised": "nienadzorowany"}
-STYLES = [("black", "-"), ("0.35", "--"), ("0.5", "-."), ("0.65", ":"), ("0.2", (0, (5, 1)))]
+STYLES = [("black", "-"), ("0.35", "--"), ("0.5", "-."), ("0.65", ":"), ("0.2", (0, (5, 1))),
+          ("0.45", (0, (3, 1, 1, 1))), ("0.3", (0, (1, 1))), ("0.55", (0, (8, 2)))]
 
 plt.rcParams.update({"font.family": "serif", "font.size": 10, "axes.grid": True, "grid.alpha": 0.3})
 
@@ -84,6 +86,17 @@ def tab_niu(df):
                        "Ustawienie zbliżone do pracy \\cite{niu2019}: losowa walidacja krzyżowa, niedopróbkowanie klasy większościowej dla modeli nadzorowanych.",
                        "tab:niu", align="llccc",
                        note="Liczby z \\cite{niu2019} dotyczą ich ustawienia eksperymentu i są podane orientacyjnie.")
+
+
+def tab_pairs(df):
+    rows = [[f"{dn(r.model_a)} vs {dn(r.model_b)}", num(r.delta), ci(r.lo, r.hi), (f"$<${num(2 / r.n_boot, 3)}" if r.p_boot == 0 else num(r.p_boot, 3)),
+             "tak" if r.significant else "nie"] for r in df.itertuples()]
+    return latex_table(["Para modeli (A vs B)", "$\\Delta$ PR-AUC", "95\\% przedział", "$p$ (bootstrap)", "Istotna"], rows,
+                       "Różnice PR-AUC między parami modeli na zbiorze testowym (bootstrap parami).",
+                       "tab:pary", align="lcccc",
+                       note="$\\Delta$ = PR-AUC(A) $-$ PR-AUC(B). W każdej próbie bootstrapowej losowano te same transakcje dla obu modeli. "
+                            "Wartość $p$ jest orientacyjna (dwustronna, z rozkładu bootstrapowego); „istotna'' oznacza, że przedział nie zawiera zera. "
+                            "Uwzględniono tylko zmienność zbioru testowego, nie zmienność wynikającą z uczenia.")
 
 
 def tab_imb(df):
@@ -200,4 +213,19 @@ def plot_windows(long, base):
     ax.set_xticks(sorted(long.window.unique()))
     ax.set(xlabel="Okno testowe (kolejne w czasie)", ylabel="PR-AUC", ylim=(0, 1.02))
     ax.legend(fontsize=8)
+    save_fig(fig, base)
+
+
+def plot_pairs(df, base):
+    fig, ax = plt.subplots(figsize=(5.8, max(2.5, 0.28 * len(df) + 1.0)))
+    y = np.arange(len(df))[::-1]
+    lab = [f"{dn(a)} vs {dn(b)}" for a, b in zip(df.model_a, df.model_b)]
+    for yi, r in zip(y, df.itertuples()):
+        ax.plot([r.lo, r.hi], [yi, yi], color="black", lw=1.2 if r.significant else 0.8, alpha=1 if r.significant else 0.5)
+        ax.plot(r.delta, yi, "o" if r.significant else "s", color="black" if r.significant else "white",
+                markeredgecolor="black", ms=4)
+    ax.axvline(0, color="0.4", lw=0.8, ls="--")
+    ax.set_yticks(y, lab, fontsize=7)
+    ax.set(xlabel="Różnica PR-AUC (A $-$ B), 95% przedział")
+    ax.grid(axis="y", alpha=0.0)
     save_fig(fig, base)

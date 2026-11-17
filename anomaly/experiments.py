@@ -25,9 +25,10 @@ from .train import fit_pipeline
 METRICS = ["pr_auc", "roc_auc", "f1", "precision", "recall"]
 SUPERVISED = ["logreg", "random_forest", "xgboost"]
 FAST = {"random_forest": {"n_estimators": 50}, "xgboost": {"n_estimators": 100},
-        "isolation_forest": {"n_estimators": 50}}
-# Wartości AUROC podane w pracy [2] (tylko modele, które mamy również u siebie)
-NIU_REPORTED = {"xgboost": 0.989, "random_forest": 0.988}
+        "isolation_forest": {"n_estimators": 50}, "autoencoder": {"max_iter": 20}}
+# Wartości AUROC podane w tekście pracy [2] (tylko modele, które mamy również u siebie).
+# OCSVM: wartość zaokrąglona z tekstu ("OC-SVM ... 0.90"); AE: w tekście tylko "powyżej 0,95".
+NIU_REPORTED = {"xgboost": 0.989, "random_forest": 0.988, "ocsvm": 0.90}
 
 
 def _params(name, fast):
@@ -67,6 +68,56 @@ def bootstrap_ci(y, s, thr, n_boot=500, seed=0, alpha=0.05):
         vals["recall"].append(recall_score(yb, pb, zero_division=0))
     q = [100 * alpha / 2, 100 * (1 - alpha / 2)]
     return {k: tuple(np.percentile(v, q)) if v else (np.nan, np.nan) for k, v in vals.items()}
+
+
+def paired_bootstrap(y, scores, n_boot=500, seed=0, alpha=0.05):
+    """Bootstrap parami różnic PR-AUC między modelami na tym samym zbiorze testowym.
+
+    W każdej próbie bootstrapowej losujemy te same indeksy dla wszystkich modeli, więc różnica
+    PR-AUC(A) - PR-AUC(B) uwzględnia korelację wyników na tych samych transakcjach.
+    Zwraca DataFrame: model_a, model_b, delta (na pełnym teście), lo/hi (percentylowy przedział),
+    p_boot (dwustronny, orientacyjny) i significant (przedział nie zawiera 0).
+    Uwzględnia tylko zmienność zbioru testowego, nie zmienność treningu (seedy).
+    """
+    rng = np.random.default_rng(seed)
+    y = np.asarray(y)
+    names = list(scores)
+    S = {k: np.asarray(v) for k, v in scores.items()}
+    n = len(y)
+    boot = {k: [] for k in names}
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        yb = y[idx]
+        if yb.sum() == 0 or yb.sum() == n:
+            continue
+        for k in names:
+            boot[k].append(average_precision_score(yb, S[k][idx]))
+    boot = {k: np.asarray(v) for k, v in boot.items()}
+    point = {k: average_precision_score(y, S[k]) for k in names}
+    q = [100 * alpha / 2, 100 * (1 - alpha / 2)]
+    rows = []
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            d = boot[a] - boot[b]
+            lo, hi = np.percentile(d, q) if len(d) else (np.nan, np.nan)
+            p = float(min(1.0, 2 * min((d <= 0).mean(), (d >= 0).mean()))) if len(d) else np.nan
+            rows.append({"model_a": a, "model_b": b, "delta": point[a] - point[b], "lo": lo, "hi": hi,
+                         "p_boot": p, "significant": bool(lo > 0 or hi < 0), "n_boot": int(len(d))})
+    return pd.DataFrame(rows)
+
+
+def run_pairs(y, scores, out, n_boot, seed=0):
+    """Liczy i zapisuje bootstrap parami (CSV, tabela LaTeX, wykres). Wymaga co najmniej 2 modeli."""
+    if len(scores) < 2:
+        print("[pary] pominięto: potrzeba co najmniej 2 modeli")
+        return None
+    out = Path(out)
+    d = paired_bootstrap(y, scores, n_boot, seed)
+    d.to_csv(out / "csv" / "pary.csv", index=False)
+    report.write(out / "tables" / "tab_pary.tex", report.tab_pairs(d))
+    report.plot_pairs(d, out / "figures" / "pary_roznice")
+    print(f"[pary] {len(d)} par, istotnych (95% CI bez zera): {int(d.significant.sum())}")
+    return d
 
 
 def run_main(splits, models, seeds, n_boot, fast=False):
@@ -194,6 +245,12 @@ def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1
         report.plot_curves({n: (v[0], v[1]) for n, v in scores.items()}, "roc", f / "krzywe_roc")
         report.plot_ci(summ, f / "przedzialy_pr_auc")
         report.plot_confusion(cms, f / "macierze_pomylek")
+        run_pairs(next(iter(scores.values()))[0], {n: v[1] for n, v in scores.items()}, out, n_boot, seeds[0])
+    if "pairs" in todo and "main" not in todo:      # z zapisanych wyników (bez ponownego uczenia)
+        npz = np.load(out / "csv" / "scores_test.npz")
+        sc = {k: npz[k] for k in npz.files if k != "y_test"}
+        sc = {k: v for k, v in sc.items() if k in models}
+        run_pairs(npz["y_test"], sc, out, n_boot, seeds[0])
     if "niu" in todo:
         d = run_niu(df, models, folds, undersample, seeds[0], fast)
         d.to_csv(out / "csv" / "niu.csv", index=False)
@@ -221,7 +278,7 @@ def main():
     ap.add_argument("--synthetic", type=int, default=0, help="dane syntetyczne (liczba wierszy) zamiast pliku")
     ap.add_argument("--out", default="results")
     ap.add_argument("--models", default="all")
-    ap.add_argument("--what", default="all", help="all lub lista: main,niu,imbalance,rolling")
+    ap.add_argument("--what", default="all", help="all lub lista: main,niu,imbalance,rolling,pairs (pairs liczy się też razem z main)")
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--bootstrap", type=int, default=500)
     ap.add_argument("--folds", type=int, default=5)
