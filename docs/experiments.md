@@ -22,15 +22,6 @@ python -m anomaly.experiments --synthetic 20000 --fast --seeds 2 --bootstrap 100
 
 Wyniki: `results/csv/*.csv`, `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/run_info.json` (seedy, parametry).
 
-## Uczciwe zastrzeżenia (ujmij je w pracy)
-- **Replikacja [2] jest przybliżona.** Znam z pracy: losowy podział, niedopróbkowanie dla modeli nadzorowanych, AUROC. Nie znam wszystkich szczegółów
-  (stosunek klas po niedopróbkowaniu, hiperparametry), a modele RBM, GAN, KNN i liniowy SVM nie są u mnie zaimplementowane. Piszesz więc „ustawienie zbliżone do [2]”, nie „replikacja”.
-  Liczby z [2] w tabeli: XGBoost 0,989, RF 0,988, OCSVM ok. 0,90 (wartości z tekstu pracy; dla autoenkodera tekst podaje tylko „powyżej 0,95”).
-- **Modele deterministyczne** (regresja logistyczna, w praktyce LOF z ustalonym ziarnem) mają zerowe odchylenie z seedów. To zmienność od treningu, nie od danych.
-- **Bootstrap** uwzględnia zmienność składu zbioru testowego, ale przy kilkudziesięciu oszustwach przedziały będą szerokie. To wynik, który warto opisać, nie ukrywać.
-- **Okna czasowe**: pierwsze okno ma mało danych treningowych (ok. 25%).
-- Dobór hiperparametrów jest domyślny (bez strojenia). Strojenie (np. `RandomizedSearchCV` z `average_precision`) dodaj, jeśli zostanie czas.
-
 ## Użycie w LaTeX (Overleaf)
 Skopiuj `results/tables/*.tex` do `tables/`, a `results/figures/*.pdf` do `figures/`, potem:
 ```latex
@@ -50,7 +41,6 @@ Tabele używają `booktabs` i `float` (opcja `[H]`), a liczby mają przecinek dz
 - **OCSVM uczy się na losowej próbce 20 tys. transakcji** (koszt rośnie szybciej niż liniowo); w odróżnieniu od autoenkodera widzi też oszustwa z tej próbki (jak IF i LOF).
 - **Skalowanie:** jak w [2], `RobustScaler` na `Amount`. OCSVM i autoenkoder są wrażliwe na skalę cech (długi ogon kwoty). Opcjonalnie `log_amount=true`
   w parametrach (`log1p(Amount)` + standaryzacja) pozwala to sprawdzić. Domyślnie wyłączone.
-- Nowe modele **nie były jeszcze uruchomione na prawdziwych danych**; testy i smoke-test działają na danych syntetycznych.
 
 ## Bootstrap parami
 Dla pary modeli A i B w każdej próbie bootstrapowej losujemy te same transakcje testowe i liczymy PR-AUC(A) − PR-AUC(B). Raportujemy różnicę na pełnym teście, 95% przedział
