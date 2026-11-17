@@ -45,3 +45,22 @@ def test_stream_and_simulate_with_kaggle_model(client):
     s = client.post("/api/sandbox/simulate", json={"n": 300, "fraud_rate": 0.05, "model": "logreg"}).json()
     assert s["n"] == 300 and s["metrics"] is not None
     assert client.get("/api/stream/next", params={"source": "replay", "model": "logreg"}).status_code == 409
+
+
+def test_stats_and_clear_history(client):
+    client.get("/api/stream/next", params={"model": "logreg", "n": 3})
+    st = client.get("/api/stats").json()
+    assert st["total"] >= 3 and "by_source" in st and "by_model" in st
+    assert client.delete("/api/transactions").json()["deleted"] >= 3
+    assert client.get("/api/stats").json()["total"] == 0
+
+
+def test_replay_stream_with_fraud_boost(tmp_path):
+    from backend.app.main import create_app
+    d = tmp_path
+    df = make_synthetic(6000, 0.03)
+    df.to_csv(d / "data.csv", index=False)
+    train_one("logreg", temporal_split(df), out_dir=d)
+    c = TestClient(create_app(model_dir=d, database_url=f"sqlite:///{d}/t.db", data_path=str(d / "data.csv")))
+    r = c.get("/api/stream/next", params={"source": "replay", "model": "logreg", "n": 40, "fraud_rate": 0.5})
+    assert r.status_code == 200 and sum(x["label"] for x in r.json()) >= 5

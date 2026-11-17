@@ -34,3 +34,10 @@ API, panel) działa bez zmian.
 - skala ryzyka z percentyli wyniku (zamiast high/low),
 - autoryzacja użytkowników (obecnie brak), RODO przy własnych transakcjach,
 - frontend (React), konektor bankowy (PoC).
+
+## Frontend (v0.3)
+Panel React (`frontend/`) jest osobną warstwą nad API: `api.js` (klient), `store.jsx` (modele), `modules/` (strony) z rejestrem
+`modules/index.js`. Backend może serwować zbudowany panel (`frontend/dist`) pod `/`, więc demo wymaga jednej komendy.
+Dla źródeł i modeli panel jest generyczny: lista źródeł (`/api/sources`) i modeli (`/api/models`) pochodzi z backendu,
+a schemat cech modelu (`kaggle_pca` / `generic_tx`) steruje tym, co panel pozwala ocenić. Nowe źródło (np. bank) pojawi się
+w panelu po dodaniu konektora w backendzie bez zmian w kodzie stron.

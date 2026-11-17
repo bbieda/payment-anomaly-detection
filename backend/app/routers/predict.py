@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import case, func
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, model_validator
 
@@ -65,21 +66,22 @@ def recent(limit: int = 50, source: str | None = None, db=Depends(get_db)):
 
 @router.get("/stream/next")
 def stream_next(request: Request, source: str = "simulated", model: str | None = None,
-                n: int = Query(1, ge=1, le=100), db=Depends(get_db)):
+                n: int = Query(1, ge=1, le=100), fraud_rate: float | None = Query(None, ge=0, le=0.5),
+                db=Depends(get_db)):
     """Kolejne transakcje ze strumienia (do odpytywania przez dashboard co ~2 s)."""
     app, store = request.app, request.app.state.store
     try:
         name = resolve_model(store, model)
         schema = store.meta(name).get("schema", "kaggle_pca")
-        key = (source, schema)
+        key = (source, schema, fraud_rate)
         if key not in app.state.streams:
             if source == "simulated":
-                app.state.streams[key] = SimulatedSource(schema=schema, fraud_rate=0.05)
+                app.state.streams[key] = SimulatedSource(schema=schema, fraud_rate=0.05 if fraud_rate is None else fraud_rate)
             elif source == "replay":
                 if schema != "kaggle_pca":
                     raise LookupError("Źródło 'replay' wymaga modelu o schemacie kaggle_pca.")
                 try:
-                    app.state.streams[key] = ReplaySource(app.state.data_path)
+                    app.state.streams[key] = ReplaySource(app.state.data_path, fraud_rate or 0.0)
                 except FileNotFoundError:
                     raise LookupError("Brak pliku z danymi (DATA_PATH).")
             else:
@@ -89,3 +91,24 @@ def stream_next(request: Request, source: str = "simulated", model: str | None =
         raise to_http(e)
     save_results(db, source, res)
     return res
+
+
+@router.get("/stats")
+def stats(db=Depends(get_db)):
+    """Zbiorcze statystyki historii ocen (dla panelu)."""
+    flagged = func.sum(case((Prediction.is_anomaly, 1), else_=0))
+    total, anomalies, avg_lat = db.query(func.count(Prediction.id), flagged, func.avg(Prediction.latency_ms)).one()
+    by_source = db.query(Prediction.source, func.count(Prediction.id), flagged).group_by(Prediction.source).all()
+    by_model = db.query(Prediction.model_name, func.count(Prediction.id), flagged, func.avg(Prediction.latency_ms)) \
+        .group_by(Prediction.model_name).all()
+    return {"total": total or 0, "anomalies": int(anomalies or 0), "avg_latency_ms": avg_lat,
+            "by_source": [{"source": s, "count": c, "anomalies": int(a or 0)} for s, c, a in by_source],
+            "by_model": [{"model": m, "count": c, "anomalies": int(a or 0), "avg_latency_ms": l} for m, c, a, l in by_model]}
+
+
+@router.delete("/transactions")
+def clear_history(db=Depends(get_db)):
+    """Czyści historię ocen (przydatne przed demonstracją). Prototyp: bez uwierzytelniania."""
+    n = db.query(Prediction).delete()
+    db.commit()
+    return {"deleted": n}
