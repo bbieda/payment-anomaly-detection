@@ -99,6 +99,21 @@ def tab_pairs(df):
                             "Uwzględniono tylko zmienność zbioru testowego, nie zmienność wynikającą z uczenia.")
 
 
+def tab_sweep(df):
+    rows = []
+    for name, g in df.groupby("model", sort=False):
+        for r in g.itertuples():
+            if r.domyslna or r.wybrana:
+                lab = " i ".join(x for x, f in (("domyślna", r.domyslna), ("wybrana na walidacji", r.wybrana)) if f)
+                rows.append([dn(name), lab, r.config.replace("_", "\\_").replace("{", "").replace("}", "").replace('"', ""),
+                             num(r.val_pr_auc), num(r.test_pr_auc), num(r.test_roc_auc)])
+    return latex_table(["Model", "Konfiguracja", "Parametry", "PR-AUC (walid.)", "PR-AUC (test)", "ROC AUC (test)"], rows,
+                       "Strojenie modeli nienadzorowanych: konfiguracja domyślna i wybrana na zbiorze walidacyjnym.",
+                       "tab:strojenie", align="lllccc",
+                       note="Wybór wg PR-AUC na walidacji (56 oszustw, więc wybór jest niepewny); zbiór testowy nie brał udziału w wyborze. "
+                            "\\texttt{log\\_amount}: $\\log(1+\\text{Amount})$ i standaryzacja zamiast \\texttt{RobustScaler}. Jeden seed.")
+
+
 def tab_imb(df):
     rows = [[dn(r.model), r.variant] + [pm(getattr(r, f"{k}_mean"), getattr(r, f"{k}_std"))
             for k in ("pr_auc", "f1", "precision", "recall")] for r in df.itertuples()]

@@ -28,7 +28,6 @@ highly imbalanced dataset.
 anomaly/      ML code: data, models (registry), metrics, training, experiments, reports
 backend/app/  FastAPI app: routers, scoring service, connectors, model store, database
 frontend/     React dashboard (see frontend/README.md)
-notebooks/    EDA and experiments
 tests/        pytest suite
 docs/         architecture, experiments
 data/raw/     datasets (not in git)      models/   trained models (not in git)
@@ -93,7 +92,7 @@ Notes:
 ### Experiments for the thesis
 ```bash
 python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
-# parts: main | niu | imbalance | rolling   (see docs/experiments.md)
+# parts: main | niu | imbalance | rolling | sweep | pairs   (see docs/experiments.md)
 python -m anomaly.experiments --replot --out results    # rebuild figures/tables from saved CSV/NPZ (no retraining)
 ```
 Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`.
@@ -126,10 +125,9 @@ Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv
 - [x] ML pipeline, API, tests, sandbox, experiment runner
 - [x] Web dashboard (live stream, models, metrics, prediction, sandbox, history)
 - [x] First experiments on the full dataset
-- [x] One-Class SVM, autoencoder, paired bootstrap of PR-AUC differences (not yet run on the real data)
-- [ ] LOF diagnosis, hyperparameter tuning
-- [ ] Model versioning in the database, authentication
-- [ ] Bank connector proof of concept
+- [x] One-Class SVM, autoencoder, paired bootstrap of PR-AUC differences
+- [x] Scale diagnosis and validation-based tuning of LOF, One-Class SVM and autoencoder (`--what sweep`)
+- Bank connector: only a skeleton (PSD2-style mapping); a live proof of concept was dropped (it needs TPP status or an intermediary)
 
 ### License
 No license yet (all rights reserved). Academic project.
@@ -159,7 +157,6 @@ płatniczych wraz z porównawczą analizą algorytmów uczenia nadzorowanego i n
 anomaly/      kod ML: dane, modele (rejestr), metryki, trening, eksperymenty, raporty
 backend/app/  aplikacja FastAPI: routery, serwis oceny, konektory, magazyn modeli, baza danych
 frontend/     panel React (zob. frontend/README.md)
-notebooks/    EDA i eksperymenty
 tests/        testy pytest
 docs/         architektura, eksperymenty
 data/raw/     dane (poza gitem)          models/   wytrenowane modele (poza gitem)
@@ -224,7 +221,7 @@ Uwagi:
 ### Eksperymenty do pracy
 ```bash
 python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
-# części: main | niu | imbalance | rolling   (zob. docs/experiments.md)
+# części: main | niu | imbalance | rolling | sweep | pairs   (zob. docs/experiments.md)
 python -m anomaly.experiments --replot --out results    # odtworzenie wykresów i tabel z zapisanych CSV/NPZ (bez treningu)
 ```
 Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`.
@@ -257,10 +254,9 @@ Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`
 - [x] Pipeline ML, API, testy, sandbox, skrypt eksperymentów
 - [x] Panel webowy (strumień na żywo, modele, metryki, predykcja, sandbox, historia)
 - [x] Pierwsze eksperymenty na pełnym zbiorze
-- [x] One-Class SVM, autoenkoder, bootstrap parami różnic PR-AUC (jeszcze nieuruchomione na prawdziwych danych)
-- [ ] Diagnoza LOF, strojenie hiperparametrów
-- [ ] Wersjonowanie modeli w bazie, uwierzytelnianie
-- [ ] PoC konektora bankowego
+- [x] One-Class SVM, autoenkoder, bootstrap parami różnic PR-AUC
+- [x] Diagnoza skali i strojenie na walidacji dla LOF, One-Class SVM i autoenkodera (`--what sweep`)
+- Konektor bankowy: tylko szkielet (mapowanie w stylu PSD2); PoC na żywo odpuszczony (wymaga statusu TPP lub pośrednika)
 
 ### Licencja
 Na razie brak licencji (wszelkie prawa zastrzeżone). Projekt akademicki.

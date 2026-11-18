@@ -71,3 +71,9 @@ def test_train_one_roundtrip(name, splits, tmp_path):
     assert anomaly_score(pipe, one, meta["kind"]).shape == (1,)
     if name == "autoencoder":
         assert saved["normal_only"] is True
+
+
+def test_lof_log_amount_option_builds(splits):
+    train, _, test = splits
+    pipe, _, _ = fit_pipeline("lof", train, {"log_amount": True, "n_neighbors": 10})
+    assert np.isfinite(anomaly_score(pipe, test[FEATURES].head(50), "unsupervised")).all()

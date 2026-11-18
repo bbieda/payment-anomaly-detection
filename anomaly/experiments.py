@@ -223,6 +223,50 @@ def run_rolling(df, models, n_folds=4, seed=42, fast=False):
     return long, summ, counts
 
 
+# Siatki do diagnozy skali i strojenia modeli nienadzorowanych (LOF, OCSVM, autoenkoder), wybór wg PR-AUC na walidacji.
+# log_amount=True: log1p(Amount) + standaryzacja zamiast RobustScaler (diagnoza wrażliwości na skalę kwoty).
+SWEEPS = {
+    "lof": [{"n_neighbors": k, "log_amount": la} for la in (False, True) for k in (20, 50, 100)],
+    "ocsvm": [{"nu": nu, "gamma": g, "log_amount": la}
+              for la in (False, True) for nu in (0.01, 0.1) for g in (0.001, 0.01, 0.1)],
+    "autoencoder": [{"hidden_layer_sizes": h, "log_amount": la}
+                    for la in (False, True) for h in ([16, 32, 32, 16], [14, 7, 14])],
+}
+
+
+def run_sweep(splits, models, seed=42, fast=False):
+    """Dla każdego modelu z SWEEPS uczy wszystkie konfiguracje i wybiera najlepszą wg PR-AUC na WALIDACJI.
+    Test jest tylko raportowany (nigdy nie służy do wyboru). Jedna konfiguracja = pierwszy seed."""
+    train, val, test = splits
+    rows = []
+    for name in [m for m in models if m in SWEEPS]:
+        spec = REGISTRY[name]
+        res = []
+        for cfg in SWEEPS[name]:
+            pipe, p, sec = fit_pipeline(name, train, {**(_params(name, fast) or {}), **cfg}, seed)
+            sv = anomaly_score(pipe, val[FEATURES], spec.kind)
+            st = anomaly_score(pipe, test[FEATURES], spec.kind)
+            res.append({"model": name, "config": json.dumps(cfg), "log_amount": bool(cfg.get("log_amount", False)),
+                        "val_pr_auc": average_precision_score(val[TARGET], sv),
+                        "val_roc_auc": roc_auc_score(val[TARGET], sv),
+                        "test_pr_auc": average_precision_score(test[TARGET], st),
+                        "test_roc_auc": roc_auc_score(test[TARGET], st), "fit_s": sec})
+        best = int(np.argmax([r["val_pr_auc"] for r in res]))
+        for i, r in enumerate(res):
+            r["domyslna"] = i == _default_index(name)
+            r["wybrana"] = i == best
+        rows += res
+    return pd.DataFrame(rows)
+
+
+def _default_index(name):
+    d = REGISTRY[name].defaults
+    for i, cfg in enumerate(SWEEPS[name]):
+        if not cfg.get("log_amount", False) and all(cfg[k] == d[k] for k in cfg if k != "log_amount"):
+            return i
+    return -1
+
+
 def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1.0, fast=False):
     out = Path(out)
     (out / "csv").mkdir(parents=True, exist_ok=True)
@@ -233,7 +277,7 @@ def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1
     sp = split_summary(splits)
     sp.to_csv(out / "csv" / "podzial.csv", index=False)
     report.write(t / "tab_podzial.tex", report.tab_split(sp))
-    todo = {"main", "niu", "imbalance", "rolling"} if "all" in what else set(what)
+    todo = {"main", "niu", "imbalance", "rolling", "sweep"} if "all" in what else set(what)
     if "main" in todo:
         summ, scores, cms = run_main(splits, models, seeds, n_boot, fast)
         summ.to_csv(out / "csv" / "wyniki_glowne.csv", index=False)
@@ -266,6 +310,11 @@ def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1
         long.to_csv(out / "csv" / "okna.csv", index=False)
         report.write(t / "tab_okna.tex", report.tab_windows(summ, counts))
         report.plot_windows(long, f / "okna_pr_auc")
+    if "sweep" in todo:
+        d = run_sweep(splits, models, seeds[0], fast)
+        if len(d):
+            d.to_csv(out / "csv" / "strojenie.csv", index=False)
+            report.write(t / "tab_strojenie.tex", report.tab_sweep(d))
     info = {"created": datetime.now(timezone.utc).isoformat(), "python": platform.python_version(), "seeds": seeds,
             "bootstrap": n_boot, "folds": folds, "undersample": undersample, "fast": fast, "what": sorted(todo),
             "models": models, "n_rows": len(df)}
@@ -278,7 +327,7 @@ def main():
     ap.add_argument("--synthetic", type=int, default=0, help="dane syntetyczne (liczba wierszy) zamiast pliku")
     ap.add_argument("--out", default="results")
     ap.add_argument("--models", default="all")
-    ap.add_argument("--what", default="all", help="all lub lista: main,niu,imbalance,rolling,pairs (pairs liczy się też razem z main)")
+    ap.add_argument("--what", default="all", help="all lub lista: main,niu,imbalance,rolling,sweep,pairs (pairs liczy się też razem z main)")
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--bootstrap", type=int, default=500)
     ap.add_argument("--folds", type=int, default=5)
