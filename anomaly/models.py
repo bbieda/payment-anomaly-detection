@@ -59,7 +59,8 @@ def _iforest(p, seed, w):
 
 
 def _lof(p, seed, w):
-    return Pipeline([("prep", _prep()),
+    prep, p = _prep_for(p)
+    return Pipeline([("prep", prep),
                      ("clf", LocalOutlierFactor(novelty=True, n_jobs=-1, **p))])
 
 

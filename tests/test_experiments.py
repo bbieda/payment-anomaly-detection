@@ -1,7 +1,7 @@
 import numpy as np
 
 from anomaly.data import temporal_split
-from anomaly.experiments import bootstrap_ci, paired_bootstrap, rolling_splits, run_all
+from anomaly.experiments import SWEEPS, bootstrap_ci, run_sweep, paired_bootstrap, rolling_splits, run_all
 from anomaly.synthetic import make_synthetic
 
 
@@ -53,3 +53,12 @@ def test_run_all_writes_tables_and_figures(tmp_path):
     for f in ("krzywe_pr", "krzywe_roc", "macierze_pomylek", "niezbalansowanie", "okna_pr_auc"):
         assert (tmp_path / "figures" / f"{f}.pdf").exists()
     assert (tmp_path / "run_info.json").exists()
+
+
+def test_sweep_picks_config_on_validation_only():
+    splits = temporal_split(make_synthetic(6000, 0.03))
+    d = run_sweep(splits, ["lof", "ocsvm", "logreg"], fast=True)
+    assert set(d.model) == {"lof", "ocsvm"}                       # modele spoza SWEEPS pominięte
+    for name, g in d.groupby("model"):
+        assert len(g) == len(SWEEPS[name]) and g.wybrana.sum() == 1 and g.domyslna.sum() == 1
+        assert g[g.wybrana].val_pr_auc.iloc[0] == g.val_pr_auc.max()
