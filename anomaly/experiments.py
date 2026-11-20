@@ -4,6 +4,7 @@ okna czasowe, przedziały ufności (bootstrap). Zapisuje CSV, tabele LaTeX i wyk
 python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
 Szybki test:  python -m anomaly.experiments --synthetic 20000 --fast --seeds 2 --bootstrap 100 --out /tmp/res
 """
+import sys
 import argparse
 import json
 import platform
@@ -322,6 +323,7 @@ def run_all(df, out, models, what, n_seeds=5, n_boot=500, folds=5, undersample=1
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data/raw/creditcard.csv")
     ap.add_argument("--synthetic", type=int, default=0, help="dane syntetyczne (liczba wierszy) zamiast pliku")

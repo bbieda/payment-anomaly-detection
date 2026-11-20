@@ -29,7 +29,7 @@ anomaly/      ML code: data, models (registry), metrics, training, experiments, 
 backend/app/  FastAPI app: routers, scoring service, connectors, model store, database
 frontend/     React dashboard (see frontend/README.md)
 tests/        pytest suite
-docs/         architecture, experiments
+docs/         architecture, experiments, results
 data/raw/     datasets (not in git)      models/   trained models (not in git)
 ```
 
@@ -93,9 +93,27 @@ Notes:
 ```bash
 python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
 # parts: main | niu | imbalance | rolling | sweep | pairs   (see docs/experiments.md)
-python -m anomaly.experiments --replot --out results    # rebuild figures/tables from saved CSV/NPZ (no retraining)
+python -m anomaly.experiments --out results --what pairs    # recompute paired bootstrap from saved scores (no retraining)
 ```
 Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`.
+
+### Key results
+Test set (chronological split, 52 frauds), mean over 5 seeds; full tables, paired bootstrap, tuning and time windows in `docs/results.md` (Polish).
+
+| Model | PR-AUC | ROC AUC |
+|---|---|---|
+| Logistic regression | 0.711 | 0.977 |
+| Random Forest | 0.770 | 0.929 |
+| XGBoost | 0.763 | 0.970 |
+| Isolation Forest | 0.047 | 0.937 |
+| LOF | 0.002 | 0.503 |
+| One-Class SVM | 0.038 | 0.930 |
+| Autoencoder | 0.235 | 0.949 |
+
+- The three supervised models are statistically indistinguishable (paired bootstrap) and clearly better than all unsupervised ones.
+- The autoencoder is the best unsupervised model; results of the unsupervised models vary a lot between time windows.
+- ROC AUC of about 0.93-0.95 hides a PR-AUC of only 0.04-0.25, so PR-AUC is the main metric.
+- LOF depends on the number of neighbours, not on the scaling of the amount (see `docs/results.md`).
 
 ### Main API endpoints
 | Endpoint | Purpose |
@@ -119,12 +137,12 @@ Outputs: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv
   Results are academic and not production-ready.
 
 ### Documentation
-`docs/architecture.md`, `docs/experiments.md` (Polish), `frontend/README.md`.
+`docs/architecture.md`, `docs/experiments.md` (Polish), `docs/results.md` (Polish), `frontend/README.md`.
 
 ### Status
 - [x] ML pipeline, API, tests, sandbox, experiment runner
 - [x] Web dashboard (live stream, models, metrics, prediction, sandbox, history)
-- [x] First experiments on the full dataset
+- [x] Experiments on the full dataset (5 seeds, bootstrap, time windows, tuning); results in `docs/results.md`
 - [x] One-Class SVM, autoencoder, paired bootstrap of PR-AUC differences
 - [x] Scale diagnosis and validation-based tuning of LOF, One-Class SVM and autoencoder (`--what sweep`)
 - Bank connector: only a skeleton (PSD2-style mapping); a live proof of concept was dropped (it needs TPP status or an intermediary)
@@ -158,7 +176,7 @@ anomaly/      kod ML: dane, modele (rejestr), metryki, trening, eksperymenty, ra
 backend/app/  aplikacja FastAPI: routery, serwis oceny, konektory, magazyn modeli, baza danych
 frontend/     panel React (zob. frontend/README.md)
 tests/        testy pytest
-docs/         architektura, eksperymenty
+docs/         architektura, eksperymenty, wyniki
 data/raw/     dane (poza gitem)          models/   wytrenowane modele (poza gitem)
 ```
 
@@ -222,9 +240,27 @@ Uwagi:
 ```bash
 python -m anomaly.experiments --data data/raw/creditcard.csv --out results --what all
 # części: main | niu | imbalance | rolling | sweep | pairs   (zob. docs/experiments.md)
-python -m anomaly.experiments --replot --out results    # odtworzenie wykresów i tabel z zapisanych CSV/NPZ (bez treningu)
+python -m anomaly.experiments --out results --what pairs    # ponowne liczenie bootstrapu parami z zapisanych wyników (bez treningu)
 ```
 Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`.
+
+### Najważniejsze wyniki
+Zbiór testowy (podział czasowy, 52 oszustwa), średnia z 5 seedów; pełne tabele, bootstrap parami, strojenie i okna czasowe w `docs/results.md`.
+
+| Model | PR-AUC | ROC AUC |
+|---|---|---|
+| Regresja logistyczna | 0,711 | 0,977 |
+| Random Forest | 0,770 | 0,929 |
+| XGBoost | 0,763 | 0,970 |
+| Isolation Forest | 0,047 | 0,937 |
+| LOF | 0,002 | 0,503 |
+| One-Class SVM | 0,038 | 0,930 |
+| Autoenkoder | 0,235 | 0,949 |
+
+- Trzy modele nadzorowane są statystycznie nieodróżnialne (bootstrap parami) i wyraźnie lepsze od wszystkich nienadzorowanych.
+- Autoenkoder jest najlepszym modelem nienadzorowanym; wyniki modeli nienadzorowanych bardzo różnią się między oknami czasowymi.
+- ROC AUC rzędu 0,93-0,95 ukrywa PR-AUC wynoszące zaledwie 0,04-0,25, dlatego główną miarą jest PR-AUC.
+- LOF zależy od liczby sąsiadów, a nie od skalowania kwoty (zob. `docs/results.md`).
 
 ### Najważniejsze endpointy API
 | Endpoint | Zastosowanie |
@@ -248,12 +284,12 @@ Wyniki: `results/tables/*.tex`, `results/figures/*.pdf|png`, `results/csv/*.csv`
   Wyniki mają charakter akademicki i nie nadają się do zastosowań produkcyjnych.
 
 ### Dokumentacja
-`docs/architecture.md`, `docs/experiments.md`, `frontend/README.md`.
+`docs/architecture.md`, `docs/experiments.md`, `docs/results.md`, `frontend/README.md`.
 
 ### Status
 - [x] Pipeline ML, API, testy, sandbox, skrypt eksperymentów
 - [x] Panel webowy (strumień na żywo, modele, metryki, predykcja, sandbox, historia)
-- [x] Pierwsze eksperymenty na pełnym zbiorze
+- [x] Eksperymenty na pełnym zbiorze (5 seedów, bootstrap, okna czasowe, strojenie); wyniki w `docs/results.md`
 - [x] One-Class SVM, autoenkoder, bootstrap parami różnic PR-AUC
 - [x] Diagnoza skali i strojenie na walidacji dla LOF, One-Class SVM i autoenkodera (`--what sweep`)
 - Konektor bankowy: tylko szkielet (mapowanie w stylu PSD2); PoC na żywo odpuszczony (wymaga statusu TPP lub pośrednika)
